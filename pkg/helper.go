@@ -28,6 +28,8 @@ var (
 	lastUpdatedEventByRecord = make(map[string]Event)
 )
 
+//@todo: refactor with readable logs
+
 type Duration struct {
 	time.Duration
 }
@@ -81,19 +83,20 @@ func updateRecord(event Event, job Job) bool {
 			},
 		}
 		items = append(items, &item)
-		log.Info("weightage: ", weightage)
+		logger.Info("weightage: ", weightage)
 		totalWeightage -= weightage
 	}
 
 	// @todo: add actionable logs
-	log.Info("items: ", items)
+	logger.Info("items: ", items)
 
 	ctx := context.Background()
 	dnsService, err := dns.NewService(ctx)
 	if err != nil {
-		log.Fatalln(err)
+		logger.Fatalln(err)
 	}
 	rrss := dns.NewResourceRecordSetsService(dnsService)
+	//@todo: create record if not exists, with config flag
 	call := rrss.Patch(job.Destination.Project, job.Destination.ZoneName, job.Destination.RecordName, job.Destination.RecordType, &dns.ResourceRecordSet{
 		Name: job.Destination.RecordName,
 		Type: job.Destination.RecordType,
@@ -104,10 +107,11 @@ func updateRecord(event Event, job Job) bool {
 			},
 		},
 	})
-	_, err = call.Do()
+	rs, err := call.Do()
 	if err != nil {
-		log.Fatalln(err)
+		logger.Fatalln(err)
 	}
+	logger.Info("updated record: ", rs)
 	return true
 }
 func syncZone(event Event, job Job) {
@@ -153,7 +157,8 @@ func getNodeIps(job Job) []Node {
 
 	droplets, _, err := client.Droplets.ListByTag(ctx, job.TagName, opt)
 	if err != nil {
-		log.Fatalln(err)
+		//@todo: better error messages
+		logger.Fatalln(err)
 	}
 
 	nodes := make([]Node, 0)
