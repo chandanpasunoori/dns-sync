@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	version = "0.0.2"
+	version = "0.0.3"
 )
 
 var verbose bool
@@ -39,6 +39,8 @@ var rootCmd = &cobra.Command{
 		logger.Info(
 			"dns-sync " + version + " is ready to sync zones",
 		)
+		//@todo: validate config document
+		//@body: it sohuld be validated for mandatory requirements parameters, credentials, resources, etc.
 		pkg.SyncZones(config)
 	},
 }
@@ -54,6 +56,7 @@ var logger = log.Logger{
 }
 
 func Execute() {
+	//@todo: provide usage documentation with config examples
 	if genDoc := os.Getenv("GEN_DOC"); genDoc == "true" {
 		err := doc.GenMarkdownTree(rootCmd, "./docs")
 		if err != nil {
