@@ -1,0 +1,6 @@
+app.json
+app2.json
+cloudbuild.yaml
+dist/
+dns-sync
+deployment.yaml
