@@ -61,8 +61,8 @@ func updateRecord(event Event, job Job) bool {
 	logger.Info("updating record")
 	items := make([]*dns.RRSetRoutingPolicyWrrPolicyWrrPolicyItem, 0)
 
-	weightage := 100 / len(event.Nodes)
-	totalWeightage := 100
+	weightage := 1000 / len(event.Nodes)
+	totalWeightage := 1000
 
 	logger.Info("weightage: ", weightage)
 
