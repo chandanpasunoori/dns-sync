@@ -177,6 +177,8 @@ func getNodeIps(job Job) []Node {
 		logger.Fatalln(err)
 	}
 
+	logger.Info("total droplet count: ", len(droplets))
+
 	nodes := make([]Node, 0)
 
 	mutex := &sync.Mutex{}
@@ -226,9 +228,10 @@ func getNodeIps(job Job) []Node {
 			successCount := 0
 			failureCount := 0
 			// @todo: handle or throw error on misconfiguration of interval and threshold
-			progressDeadline := job.Destination.ReadinessProbe.ProgressDeadline
 			started := time.Now()
+			healthCheckNotRequired := true
 			if len(job.Destination.ReadinessProbe.HTTPGet.Path) > 0 {
+				healthCheckNotRequired = false
 				protocal := "http"
 				if job.Destination.ReadinessProbe.HTTPGet.Scheme == "HTTP" {
 					protocal = "http"
@@ -267,7 +270,7 @@ func getNodeIps(job Job) []Node {
 						logger.Info("node is ready: ", node)
 						break
 					} else {
-						if time.Since(started).Seconds() > progressDeadline.Seconds() {
+						if time.Since(started).Seconds() > job.Destination.ReadinessProbe.ProgressDeadline.Seconds() {
 							ticker.Stop()
 							logger.Info("node is not ready: ", node, ", progressDeadline reached")
 							break
@@ -275,7 +278,7 @@ func getNodeIps(job Job) []Node {
 					}
 				}
 			}
-			if isReady {
+			if isReady || healthCheckNotRequired {
 				mutex.Lock()
 				nodes = append(nodes, node)
 				mutex.Unlock()
