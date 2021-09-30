@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,6 +65,8 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 
 func updateRecord(event Event, job Job) bool {
 	logger.Info("updating record")
+	// @todo: option to use multi ip A record option, instead of weightage of ips
+
 	items := make([]*dns.RRSetRoutingPolicyWrrPolicyWrrPolicyItem, 0)
 
 	weightage := 1000 / len(event.Nodes)
@@ -135,12 +141,22 @@ func getNodeIPChangeEvents(wg *sync.WaitGroup, job Job) chan Event {
 	go func(job Job) {
 		defer wg.Done()
 		ticker := time.NewTicker(job.Source.Interval.Duration)
-		for range ticker.C {
+		for ; true; <-ticker.C {
 			logger.Info("getting node ips")
-			eventChannel <- Event{Nodes: getNodeIps(job)}
+			nodes := getNodeIps(job)
+			if len(nodes) > 0 {
+				eventChannel <- Event{Nodes: nodes}
+			}
 		}
 	}(job)
 	return eventChannel
+}
+func FileExists(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func getNodeIps(job Job) []Node {
@@ -163,18 +179,109 @@ func getNodeIps(job Job) []Node {
 
 	nodes := make([]Node, 0)
 
-	for _, droplet := range droplets {
-		node := Node{}
-		for _, ip := range droplet.Networks.V4 {
-			if ip.Type == "private" {
-				node.PrivateIP = ip.IPAddress
-			}
-			if ip.Type == "public" {
-				node.PublicIP = ip.IPAddress
+	mutex := &sync.Mutex{}
+	wg := &sync.WaitGroup{}
+
+	var ignoredNodes IgnoredNodes
+	if len(job.Destination.IgnoreListFilePath) > 0 {
+		if ok, err := FileExists(job.Destination.IgnoreListFilePath); ok && (err == nil) {
+			logger.Info("loading ignore list config")
+			if fileContent, err := ioutil.ReadFile(job.Destination.IgnoreListFilePath); err == nil {
+				err := json.Unmarshal(fileContent, &ignoredNodes)
+				if err != nil {
+					logger.Fatalln(err)
+				}
 			}
 		}
-		node.Name = droplet.Name
-		nodes = append(nodes, node)
 	}
+
+	for _, droplet := range droplets {
+		// @todo: filter nodes from redis ignore list by key `job:node_name` if present
+		ignored := false
+		for _, ignoredNode := range ignoredNodes.Nodes {
+			key := fmt.Sprintf("%s:%s", job.Name, droplet.Name)
+			if strings.EqualFold(key, ignoredNode.Name) {
+				logger.Info("ignored node found: ", key, " --> ", ignoredNode.Name)
+				ignored = true
+			}
+		}
+		if ignored {
+			continue
+		}
+
+		wg.Add(1)
+		go func(droplet godo.Droplet) {
+			defer wg.Done()
+			node := Node{}
+			for _, ip := range droplet.Networks.V4 {
+				if ip.Type == "private" {
+					node.PrivateIP = ip.IPAddress
+				}
+				if ip.Type == "public" {
+					node.PublicIP = ip.IPAddress
+				}
+			}
+			node.Name = droplet.Name
+			isReady := false
+			successCount := 0
+			failureCount := 0
+			// @todo: handle or throw error on misconfiguration of interval and threshold
+			progressDeadline := job.Destination.ReadinessProbe.ProgressDeadline
+			started := time.Now()
+			if len(job.Destination.ReadinessProbe.HTTPGet.Path) > 0 {
+				protocal := "http"
+				if job.Destination.ReadinessProbe.HTTPGet.Scheme == "HTTP" {
+					protocal = "http"
+				} else {
+					protocal = "https"
+				}
+				readinessProbeEndpoint := fmt.Sprintf(
+					"%s://%s:%d%s",
+					protocal,
+					node.PublicIP,
+					job.Destination.ReadinessProbe.HTTPGet.Port,
+					job.Destination.ReadinessProbe.HTTPGet.Path,
+				)
+				ticker := time.NewTicker(job.Destination.ReadinessProbe.Period.Duration)
+				for ; true; <-ticker.C {
+					if failureCount >= job.Destination.ReadinessProbe.FailureThreshold {
+						ticker.Stop()
+						logger.Info("node is not ready: ", node, ", failureThreshold reached")
+						break
+					}
+					logger.Info("checking readiness: ", readinessProbeEndpoint)
+					resp, err := http.Get(readinessProbeEndpoint)
+					if err != nil {
+						logger.Error(err)
+						failureCount++
+						continue
+					}
+					if resp.StatusCode == 200 {
+						successCount++
+					} else {
+						failureCount++
+					}
+					if successCount >= job.Destination.ReadinessProbe.SuccessThreshold {
+						isReady = true
+						ticker.Stop()
+						logger.Info("node is ready: ", node)
+						break
+					} else {
+						if time.Since(started).Seconds() > progressDeadline.Seconds() {
+							ticker.Stop()
+							logger.Info("node is not ready: ", node, ", progressDeadline reached")
+							break
+						}
+					}
+				}
+			}
+			if isReady {
+				mutex.Lock()
+				nodes = append(nodes, node)
+				mutex.Unlock()
+			}
+		}(droplet)
+	}
+	wg.Wait()
 	return nodes
 }

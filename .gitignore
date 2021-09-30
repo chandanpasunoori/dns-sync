@@ -4,3 +4,6 @@ cloudbuild.yaml
 dist/
 dns-sync
 deployment.yaml
+Makefile
+bin/
+ignored.json
