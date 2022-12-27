@@ -45,11 +45,13 @@ changelog:
       - "^docs:"
       - "^test:"
 dockers:
-  - image_templates:
-      - ghcr.io/chandanpasunoori/{{ .ProjectName }}:{{ .Version }}-amd64
-      - docker.io/chandanpasunoori/{{ .ProjectName }}:{{ .Version }}-amd64
+  - goarch: amd64
+    goos: linux
     dockerfile: Dockerfile
     use: buildx
+    image_templates:
+      - ghcr.io/chandanpasunoori/{{ .ProjectName }}:{{ .Version }}-amd64
+      - docker.io/chandanpasunoori/{{ .ProjectName }}:{{ .Version }}-amd64
     build_flag_templates:
       - --platform=linux/amd64
       - --label=org.opencontainers.image.title={{ .ProjectName }}
@@ -60,12 +62,13 @@ dockers:
       - --label=org.opencontainers.image.created={{ time "2006-01-02T15:04:05Z07:00" }}
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
       - --label=org.opencontainers.image.licenses=MIT
-  - image_templates:
-      - ghcr.io/chandanpasunoori/{{ .ProjectName }}:{{ .Version }}-arm64v8
-      - docker.io/chandanpasunoori/{{ .ProjectName }}:{{ .Version }}-arm64v8
-    goarch: arm64
+  - goarch: arm64
+    goos: linux
     dockerfile: Dockerfile
     use: buildx
+    image_templates:
+      - ghcr.io/chandanpasunoori/{{ .ProjectName }}:{{ .Version }}-arm64v8
+      - docker.io/chandanpasunoori/{{ .ProjectName }}:{{ .Version }}-arm64v8
     build_flag_templates:
       - --platform=linux/arm64/v8
       - --label=org.opencontainers.image.title={{ .ProjectName }}
