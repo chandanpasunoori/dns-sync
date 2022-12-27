@@ -1,2 +1,2 @@
 # dns-sync
-Checks dns records are in sync with expected value
+Syncs dns records from active instances to dns zone
