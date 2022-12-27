@@ -1,15 +1,10 @@
-# This is an example .goreleaser.yml file with some sane defaults.
-# Make sure to check the documentation at https://goreleaser.com
-
 project_name: dns-sync
 env:
   - GO111MODULE=on
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
     - go generate ./...
 builds:
   - env:
@@ -22,12 +17,23 @@ builds:
     goarch:
       - amd64
       - arm64
-archives:
-  - replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      amd64: x86_64
+    goamd64:
+      - v1
+      - v2
+      - v3
+brews:
+  - goarm: 7
+    goamd64: v2
+    tap:
+      owner: chandanpasunoori
+      name: homebrew-tap
+      branch: main
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    commit_author:
+      name: Chandan Pasunoori
+      email: chandanpasunoori@gmail.com
+    homepage: https://github.com/chandanpasunoori/dns-sync
+    description: hecks dns records are in sync with expected value
 checksum:
   name_template: "checksums.txt"
 snapshot:
