@@ -1,0 +1,58 @@
+{
+  "jobs": [
+    {
+      "name": "web-servers-sync",
+      "suspend": false,
+      "source": {
+        "type": "digitalocean",
+        "cloud": "digitalocean",
+        "interval": "30s"
+      },
+      "tagName": "web-server",
+      "destination": {
+        "type": "gcp",
+        "project": "your-gcp-project-id",
+        "zone": "your-zone-id",
+        "zoneName": "example.com.",
+        "recordName": "api.example.com.",
+        "recordType": "A",
+        "ipType": "public",
+        "ttl": "300s",
+        "readinessProbe": {
+          "period": "10s",
+          "timeout": "5s",
+          "successThreshold": 2,
+          "failureThreshold": 3,
+          "ipType": "public",
+          "httpGet": {
+            "path": "/health",
+            "port": 8080,
+            "scheme": "HTTP"
+          },
+          "progressDeadline": "300s"
+        },
+        "ignoreListFilePath": "/path/to/ignore-list.json"
+      }
+    },
+    {
+      "name": "database-sync",
+      "suspend": false,
+      "source": {
+        "type": "digitalocean",
+        "cloud": "digitalocean", 
+        "interval": "1m"
+      },
+      "tagName": "database",
+      "destination": {
+        "type": "gcp",
+        "project": "your-gcp-project-id",
+        "zone": "your-zone-id", 
+        "zoneName": "example.com.",
+        "recordName": "db.example.com.",
+        "recordType": "A",
+        "ipType": "private",
+        "ttl": "600s"
+      }
+    }
+  ]
+}

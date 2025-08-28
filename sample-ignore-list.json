@@ -1,0 +1,14 @@
+{
+  "nodes": [
+    {
+      "name": "web-servers-sync:maintenance-server-01",
+      "privateIp": "10.0.0.100",
+      "publicIp": "203.0.113.100"
+    },
+    {
+      "name": "web-servers-sync:legacy-server-02", 
+      "privateIp": "10.0.0.101",
+      "publicIp": "203.0.113.101"
+    }
+  ]
+}
